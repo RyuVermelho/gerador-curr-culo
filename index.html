@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Gerador de Currículo</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; max-width: 700px; margin: auto; }
+  label, input, textarea, button { display: block; width: 100%; margin-bottom: 15px; }
+  input, textarea { padding: 8px; font-size: 16px; }
+  button { background-color: #555; color: white; border: none; padding: 12px; cursor: pointer; font-size: 16px; }
+  button:hover { background-color: #333; }
+  #curriculo { margin-top: 30px; padding: 15px; border: 1px solid #ddd; background: #f9f9f9; }
+</style>
+</head>
+<body>
+
+<h1>Gerador de Currículo</h1>
+
+<form id="form">
+  <label for="nome">Nome:</label>
+  <input type="text" id="nome" required />
+
+  <label for="email">Email:</label>
+  <input type="email" id="email" required />
+
+  <label for="telefone">Telefone:</label>
+  <input type="tel" id="telefone" />
+
+  <label for="endereco">Endereço:</label>
+  <input type="text" id="endereco" />
+
+  <label for="complemento">Complemento:</label>
+  <input type="text" id="complemento" />
+
+  <label for="objetivo">Objetivo Profissional:</label>
+  <textarea id="objetivo" rows="4"></textarea>
+
+  <div id="formacoes"></div>
+  <button type="button" id="addFormacao">+ Adicionar Formação</button>
+
+  <div id="experiencias"></div>
+  <button type="button" id="addExperiencia">+ Adicionar Experiência</button>
+
+  <label for="habilidades">Habilidades:</label>
+  <textarea id="habilidades" rows="3"></textarea>
+
+  <label for="foto">Foto (opcional):</label>
+  <input type="file" id="foto" accept="image/*" />
+
+  <button type="submit">Gerar Currículo</button>
+  <button type="button" id="limpar">Limpar Formulário</button>
+</form>
+
+<div id="preview" style="margin-top:20px;">
+  <h2>Preview do Currículo</h2>
+  <div id="previewFoto"></div>
+  <p><strong>Nome: </strong><span id="prevNome"></span></p>
+  <p><strong>Email: </strong><span id="prevEmail"></span></p>
+  <p><strong>Telefone: </strong><span id="prevTelefone"></span></p>
+  <p><strong>Endereço: </strong><span id="prevEndereco"></span></p>
+  <p><strong>Complemento: </strong><span id="prevComplemento"></span></p>
+  <p><strong>Objetivo Profissional: </strong><span id="prevObjetivo"></span></p>
+  <div><strong>Formações Acadêmicas:</strong>
+    <ul id="prevFormacoes"></ul>
+  </div>
+  <div><strong>Experiências Profissionais:</strong>
+    <ul id="prevExperiencias"></ul>
+  </div>
+  <p><strong>Habilidades: </strong><span id="prevHabilidades"></span></p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+  function criarBloco(tipo) {
+    const container = document.getElementById(tipo === 'formacao' ? 'formacoes' : 'experiencias');
+    const div = document.createElement('div');
+    div.style.border = '1px solid #ccc';
+    div.style.padding = '10px';
+    div.style.marginBottom = '10px';
+
+    if(tipo === 'formacao') {
+      div.innerHTML = 
+        <label>Curso:</label><input type="text" class="curso" />
+        <label>Instituição:</label><input type="text" class="instituicao" />
+        <label>Período:</label><input type="text" class="periodo" />
+        <button type="button" class="remover">Remover Formação</button>
+      ;
+    } else {
+      div.innerHTML = 
+        <label>Cargo:</label><input type="text" class="cargo" />
+        <label>Empresa:</label><input type="text" class="empresa" />
+        <label>Período:</label><input type="text" class="periodo" />
+        <button type="button" class="remover">Remover Experiência</button>
+      ;
+    }
+
+    container.appendChild(div);
+
+    div.querySelector('.remover').addEventListener('click', () => {
+      container.removeChild(div);
+    });
+  }
+
+  criarBloco('formacao');
+  criarBloco('experiencia');
+
+  document.getElementById('addFormacao').addEventListener('click', () => {
+    criarBloco('formacao');
+  });
+
+  document.getElementById('addExperiencia').addEventListener('click', () => {
+    criarBloco('experiencia');
+  });
+
+  // Preview da foto
+  document.getElementById('foto').addEventListener('change', function() {
+    const preview = document.getElementById('previewFoto');
+    preview.innerHTML = '';
+    const file = this.files[0];
+    if(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = document.createElement('img');
+        img.src = e.target.result;
+        img.style.maxWidth = '150px';
+        img.style.maxHeight = '150px';
+        preview.appendChild(img);
+      }
+      reader.readAsDataURL(file);
+    }
+  });
+
+  // Atualiza preview ao digitar
+  const campos = ['nome','email','telefone','endereco','complemento','objetivo','habilidades'];
+  campos.forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      document.getElementById('prev' + id.charAt(0).toUpperCase() + id.slice(1)).textContent = document.getElementById(id).value;
+    });
+  });
+
+  function atualizarLista(tipo, classe, previewId) {
+    const container = document.getElementById(tipo === 'formacao' ? 'formacoes' : 'experiencias');
+    const preview = document.getElementById(previewId);
+    preview.innerHTML = '';
+    const divs = container.querySelectorAll('div');
+    divs.forEach(div => {
+      const curso = tipo === 'formacao' ? div.querySelector('.curso').value.trim() : div.querySelector('.cargo').value.trim();
+      const instituicao = tipo === 'formacao' ? div.querySelector('.instituicao').value.trim() : div.querySelector('.empresa').value.trim();
+      const periodo = div.querySelector('.periodo').value.trim();
+      if(curso || instituicao || periodo) {
+        const li = document.createElement('li');
+        li.textContent = tipo === 'formacao' 
+          ? ${curso} - ${instituicao} (${periodo})
+          : ${curso} - ${instituicao} (${periodo});
+        preview.appendChild(li);
+      }
+    });
+  }
+
+  // Atualiza preview para formações e experiências ao digitar
+  document.getElementById('formacoes').addEventListener('input', () => {
+    atualizarLista('formacao', 'curso', 'prevFormacoes');
+  });
+  document.getElementById('experiencias').addEventListener('input', () => {
+    atualizarLista('experiencia', 'cargo', 'prevExperiencias');
+  });
+
+  // Geração do PDF
+  document.getElementById('form').addEventListener('submit', e => {
+    e.preventDefault();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    let y = 10;
+
+    // Foto
+    const fotoFile = document.getElementById('foto').files[0];
+    if(fotoFile) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const imgData = e.target.result;
+        doc.addImage(imgData, 'JPEG', 150, 10, 40, 40);
+        gerarPDF();
+      };
+      reader.readAsDataURL(fotoFile);
+    } else {
+      gerarPDF();
+    }
+
+    function gerarPDF() {
+      doc.setFontSize(22);
+      doc.setTextColor('#000');
+      doc.text(document.getElementById('nome').value, 15, y);
+      y += 10;
+
+      doc.setFontSize(12);
+      doc.text('Email: ' + document.getElementById('email').value, 15, y);
+      y += 7;
+      doc.text('Telefone: ' + document.getElementById('telefone').value, 15, y);
+      y += 7;
+      doc.text('Endereço: ' + document.getElementById('endereco').value + (document.getElementById('complemento').value ? ', ' + document.getElementById('complemento').value : ''), 15, y);
+      y += 10;
+
+      doc.setFontSize(16);
+      doc.text('Objetivo Profissional:', 15, y);
+      y += 8;
+      doc.setFontSize(12);
+      let objetivo = document.getElementById('objetivo').value;
+      let linhas = doc.splitTextToSize(objetivo, 180);
+      doc.text(linhas, 15, y);
+      y += linhas.length * 8 + 5;
+
+      // Formação Acadêmica
+      const formacoes = document.querySelectorAll('#formacoes > div');
+      if(formacoes.length) {
+        doc.setFontSize(16);
+        doc.text('Formação Acadêmica:', 15, y);
+        y += 8;
+        doc.setFontSize(12);
+        formacoes.forEach(div => {
+          const curso = div.querySelector('.curso').value.trim();
+          const instituicao = div.querySelector('.instituicao').value.trim();
+          const periodo = div.querySelector('.periodo').value.trim();
+          if(curso || instituicao || periodo) {
+            let texto = - ${curso};
+            if(instituicao) texto +=  - ${instituicao};
+            if(periodo) texto +=  (${periodo});
+            let linhas = doc.splitTextToSize(texto, 180);
+            doc.text(linhas, 15, y);
+            y += linhas.length * 8;
+          }
+        });
+        y += 10;
+      }
+
+      // Experiência Profissional
+      const experiencias = document.querySelectorAll('#experiencias > div');
+      if(experiencias.length) {
+        doc.setFontSize(16);
+        doc.text('Experiência Profissional:', 15, y);
+        y += 8;
+        doc.setFontSize(12);
+        experiencias.forEach(div => {
+          const cargo = div.querySelector('.cargo').value.trim();
+          const empresa = div.querySelector('.empresa').value.trim();
+          const periodo = div.querySelector('.periodo').value.trim();
+          if(cargo || empresa || periodo) {
+            let texto = - ${cargo};
+            if(empresa) texto +=  - ${empresa};
+            if(periodo) texto +=  (${periodo});
+            let linhas = doc.splitTextToSize(texto, 180);
+            doc.text(linhas, 15, y);
+            y += linhas.length * 8;
+          }
+        });
+        y += 10;
+      }
+
+      // Habilidades
+      const habilidades = document.getElementById('habilidades').value.trim();
+      if(habilidades) {
+        doc.setFontSize(16);
+        doc.text('Habilidades:', 15, y);
+        y += 8;
+        doc.setFontSize(12);
+        let linhas = doc.splitTextToSize(habilidades, 180);
+        doc.text(linhas, 15, y);
+      }
+
+      doc.save('curriculo.pdf');
+    }
+  });
+
+  // Limpar formulário
+  document.getElementById('limpar').addEventListener('click', () => {
+    if(confirm('Deseja realmente limpar todos os campos?')) {
+      document.getElementById('form').reset();
+      document.getElementById('formacoes').innerHTML = '';
+      document.getElementById('experiencias').innerHTML = '';
+      document.getElementById('previewFoto').innerHTML = '';
+      document.getElementById('prevNome').textContent = '';
+      document.getElementById('prevEmail').textContent = '';
+      document.getElementById('prevTelefone').textContent = '';
+      document.getElementById('prevEndereco').textContent = '';
+      document.getElementById('prevComplemento').textContent = '';
+      document.getElementById('prevObjetivo').textContent = '';
+      document.getElementById('prevFormacoes').innerHTML = '';
+      document.getElementById('prevExperiencias').innerHTML = '';
+      document.getElementById('prevHabilidades').textContent = '';
+      criarBloco('formacao');
+      criarBloco('experiencia');
+    }
+  });
+</script>
+
+</body>
+</html>
+
+
